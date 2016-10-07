@@ -7,7 +7,7 @@ from scrapy.spidermiddlewares.depth import DepthMiddleware
 from scrapy import log
 import pymysql
 
-class Webspider(CrawlSpider):
+class Webspider(scrapy.Spider):
 
 
 
@@ -26,15 +26,14 @@ class Webspider(CrawlSpider):
     allowed_domains = ["apple.com"]
     start_urls = ['https://itunes.apple.com/jp/genre/ios-gemu/id6014?mt=8&letter=A&page=1#page']
 
-    allow_list = [r"/ios-gemu/"]
-    deny_list = []
+    #allow_list = [r"/ios-gemu/"]
+    #deny_list = []
     #allow_list_parse = []
     # deny_list_parse = []
 
 
-    rules = [
-        Rule(LinkExtractor(allow=allow_list,deny=deny_list), callback='parse_data',follow=True)
-    ]
+    Rules = (
+    Rule(LinkExtractor(allow=(), restrict_xpaths=("//a[@class='paginate-more']",)), callback="parse", follow=True),)
 
     #rules = (
         #crawling rule
@@ -43,7 +42,7 @@ class Webspider(CrawlSpider):
         #Rule(LinkExtractor(allow=allow_list_parse,deny=deny_list_parse),callback='parse_data',follow=True)
     #)
 
-    def parse_data(self,response):
+    def parse(self,response):
 
         for sel in response.xpath('//div[@id="selectedgenre"]//div/ul/li'):
             item = WebProjectItem()
@@ -54,12 +53,15 @@ class Webspider(CrawlSpider):
             yield item
 
         #次のページへのリンクを取得するXpath
-        xpath_next = ("/html/body[@class='geo-jp ac-platter-content lang-ja-jp lang-ja"
-                      " ac-gn-current-music itunes-not-detected']"
-                      "/div[@id='main']/div[@id='content']/div[@class='padder']"
-                      "/div[@id='selectedgenre']/ul[@class='list paginate'][1]/li[19]/a/@href")
-        nextpage = response.xpath(xpath_next)
-        #log.msg("nextpage is" + nextpage, levenl=log.DEBUG)
-        if nextpage :
-            url = nextpage
-            yield scrapy.Request(url, callback = self.parse_data)
+        xpath_next = "//div[2]/ul[2]/li/a[@class='paginate-more']/@href"
+        nextpage = response.xpath(xpath_next).extract()
+        # log.msg("nextpage is" + nextpage, levenl=log.DEBUG)
+        if nextpage:
+            log.msg("nextpage", level=log.DEBUG)
+            next_url = str(nextpage)
+            next_url = re.sub(r"[~\[\']", "", next_url)
+            next_url = re.sub(r"[\'\]$]", "", next_url)
+            request = scrapy.Request(url=next_url)
+            yield request
+
+        yield item
